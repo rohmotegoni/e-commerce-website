@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 
 function DarkModeToggle() {
   const [mounted, setMounted] = useState(false);
@@ -54,6 +55,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("user");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,27 +72,38 @@ export default function SignupPage() {
 
     try {
       // Send data to your backend for signup
-      let response = await axios.post(`/api/signup`, {
+      const response = await axios.post(`/api/signup`, {
         name,
         email,
         password,
         role,
       });
 
-      // Handle successful signup
-      toast({
-        title: "Account created",
-        description: "We've created your account for you.",
-      });
+      if (response.status === 201) {
+        const userRole = response.data.user.role; // Get role from the response
 
-      // Optionally, handle response or redirect user
-      console.log(response.data);
-    } catch (e) {
-      console.log(e);
-      // Handle error
+        // Redirect based on user role
+        if (userRole === "ADMIN") {
+          router.push("/admin");
+        } else if (userRole === "USER") {
+          router.push("/");
+        } else {
+          toast({
+            title: "Unknown role",
+            description: "Your role is not recognized.",
+          });
+        }
+
+        toast({
+          title: "Account created",
+          description: "We've created your account for you.",
+        });
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
       toast({
         title: "Signup failed",
-
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
     }

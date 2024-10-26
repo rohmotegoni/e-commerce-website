@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 
 function DarkModeToggle() {
   const [mounted, setMounted] = useState(false);
@@ -51,26 +52,47 @@ function DarkModeToggle() {
 export default function SigninPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the data to your backend for authentication
+    setIsLoading(true);
     console.log({ email, password });
+
     toast({
       title: "Sign-in attempt",
       description: "Attempting to sign you in...",
     });
-    let res = await axios.post(`/api/signin`, {
-      email,
-    });
-    console.log(res);
 
-    setTimeout(() => {
-      toast({
-        title: "Signed in successfully",
-        description: "Welcome back to our e-commerce platform!",
+    try {
+      const res = await axios.post(`/api/signin`, {
+        email,
+        password,
       });
-    }, 2000);
+      const userId = res.data.user.id;
+      const userRole = res.data.user.role;
+
+      // Redirect based on user role
+      if (userRole === "ADMIN") {
+        router.push("/admin");
+      } else if (userRole === "USER") {
+        router.push("/");
+      } else {
+        toast({
+          title: "Unknown role",
+          description: "Your role is not recognized.",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Sign-in error",
+        description: "An error occurred during sign-in.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -125,8 +147,16 @@ export default function SigninPage() {
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={isLoading}
             >
-              Sign In
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing In...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
             <div className="text-sm text-center text-gray-600 dark:text-gray-400">
               Don't have an account?{" "}
@@ -134,7 +164,14 @@ export default function SigninPage() {
                 href="/signup"
                 className="text-blue-500 hover:underline dark:text-blue-400"
               >
-                Sign up
+                {isLoading ? (
+                  <span className="inline-flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  "Sign up"
+                )}
               </Link>
             </div>
           </CardFooter>

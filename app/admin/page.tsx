@@ -1,6 +1,15 @@
 "use client";
-import React from "react";
-import { Search, ShoppingCart, User, LogOut } from "lucide-react";
+
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import {
+  Search,
+  ShoppingCart,
+  User,
+  LogOut,
+  PlusCircle,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,16 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 
-// Dummy data for featured products
-const featuredProducts = [
-  { id: 1, title: "Smartphone X", price: 599, image: "/placeholder.svg" },
-  { id: 2, title: "Laptop Pro", price: 1299, image: "/placeholder.svg" },
-  { id: 3, title: "Wireless Earbuds", price: 129, image: "/placeholder.svg" },
-  { id: 4, title: "Smart Watch", price: 249, image: "/placeholder.svg" },
-  { id: 5, title: "4K TV", price: 799, image: "/placeholder.svg" },
-  { id: 6, title: "Gaming Console", price: 499, image: "/placeholder.svg" },
-];
-
 // Dummy data for categories
 const categories = [
   "Electronics",
@@ -41,17 +40,57 @@ const categories = [
 
 export default function Homepage() {
   const router = useRouter();
+  const [products, setProducts] = useState<any[]>([]); // Initialize as empty array
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [quantities, setQuantities] = useState<{ [key: number]: number }>({});
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await axios.get("/api/createproduct");
+        // Check if response.data is already an array
+        const productsData = Array.isArray(response.data)
+          ? response.data
+          : response.data.products || [];
+        setProducts(productsData);
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        setError("Failed to load products");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const handleLogout = () => {
-    // Clear all cookies
     document.cookie.split(";").forEach((c) => {
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-
-    // Redirect to signin page
     router.push("/signin");
+  };
+
+  const toggleDropdown = (productId: number) => {
+    setOpenDropdown(openDropdown === productId ? null : productId);
+    if (!quantities[productId]) {
+      setQuantities({ ...quantities, [productId]: 1 });
+    }
+  };
+
+  const handleQuantityChange = (productId: number, quantity: number) => {
+    setQuantities({ ...quantities, [productId]: quantity });
+  };
+
+  const handleAddToCart = (productId: number) => {
+    const quantity = quantities[productId] || 1;
+    console.log(`Added ${quantity} of product ${productId} to cart`);
+    setOpenDropdown(null);
   };
 
   return (
@@ -134,26 +173,71 @@ export default function Homepage() {
 
         {/* Featured Products */}
         <h2 className="text-2xl font-bold mb-6">Featured Products</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredProducts.map((product) => (
-            <Card key={product.id}>
-              <CardContent className="p-4">
-                <img
-                  src={product.image}
-                  alt={product.title}
-                  className="w-full h-48 object-cover mb-4"
-                />
-                <CardTitle>{product.title}</CardTitle>
-                <p className="text-lg font-bold text-primary">
-                  ${product.price}
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full">Add to Cart</Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+
+        {loading ? (
+          <div className="text-center py-8">Loading products...</div>
+        ) : error ? (
+          <div className="text-center text-red-500 py-8">{error}</div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-8">No products found</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {products.map((product) => (
+              <Card key={product.id}>
+                <CardContent className="p-4">
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-48 object-cover mb-4"
+                  />
+                  <CardTitle>{product.name}</CardTitle>
+                  <p className="text-lg font-bold text-primary">
+                    ${product.price}
+                  </p>
+                </CardContent>
+                <CardFooter className="relative">
+                  <Button
+                    className="w-full"
+                    onClick={() => toggleDropdown(product.id)}
+                  >
+                    Add to Cart
+                  </Button>
+                  {openDropdown === product.id && (
+                    <div className="absolute bottom-full left-0 right-0 bg-white shadow-lg rounded-t-md p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold">Select Quantity</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setOpenDropdown(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={quantities[product.id] || 1}
+                          onChange={(e) =>
+                            handleQuantityChange(
+                              product.id,
+                              parseInt(e.target.value)
+                            )
+                          }
+                          className="w-20"
+                        />
+                        <Button onClick={() => handleAddToCart(product.id)}>
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Footer */}
