@@ -57,12 +57,14 @@ export default function Component() {
       .toFixed(2);
   };
 
-  const handleOrderNow = () => {
+  const handleOrderNow = async () => {
     console.log("Order placed");
     setShowCongrats(true);
     setTimeout(() => {
       setShowCongrats(false);
-    }, 5000); // Hide the message after 5 seconds
+    }, 5000);
+    await axios.delete("/api/deletecart");
+    // Hide the message after 5 seconds
   };
 
   if (loading) {
